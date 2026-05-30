@@ -789,8 +789,8 @@ function fmtPctRow(v){
   return Math.round(v)+' %';
 }
 
-const ALL_PERIODS=[...new Set(DATA.map(r=>r.competencia))].sort();
-let selected=[...ALL_PERIODS];
+let ALL_PERIODS=[];
+let selected=[];
 
 // ── COMPUTE per period ──
 function compute(period){
@@ -1446,6 +1446,8 @@ function doLogin(){
 
   try {
     DATA = await fetchAll();
+    ALL_PERIODS = [...new Set(DATA.map(r=>r.competencia))].sort();
+    selected = [...ALL_PERIODS];
   } catch (e) {
     const errEl = document.getElementById('loading-error');
     if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'Erro ao carregar dados: ' + e.message; }
