@@ -1406,6 +1406,15 @@ function getItems(key,period){
 let chartLiqInst = null;
 let chartInst = null;
 
+function doLogin(){
+  const email=document.getElementById('login-email')?.value.trim();
+  const pass=document.getElementById('login-password')?.value;
+  const err=document.getElementById('login-err');
+  if(!email||!pass){if(err)err.textContent='Preencha e-mail e senha.';return;}
+  // autenticação a ser integrada com Supabase Auth futuramente
+  if(err)err.textContent='Credenciais inválidas.';
+}
+
 (async function () {
   const SUPABASE_URL = 'https://kxqkstcimslipcbmjojz.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4cWtzdGNpbXNsaXBjYm1qb2p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3Mzg1NzEsImV4cCI6MjA5NTMxNDU3MX0.cwBEd_D-dIHPIpjLfZPE53QPKg9aRqzsGoAw4NHRYPI';
