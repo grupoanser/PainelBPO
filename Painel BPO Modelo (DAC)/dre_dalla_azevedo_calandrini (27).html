@@ -4,7 +4,132 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DRE · Dalla, Azevedo, Calandrini e Lamartine Advogados</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">
+
+// ── MÓDULO SUPABASE ──
+let sbPage = 0;
+const SB_PAGE_SIZE = 50;
+let sbFiltered = [];
+
+function sbFmtDate(d) {
+  if (!d) return '—';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y.slice(2)}`;
+}
+
+function sbFmtVal(v) {
+  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function sbStatusBadge(r) {
+  const today = new Date().toISOString().slice(0, 10);
+  if (r.is_pago) return '<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#E6F4EE;color:var(--pos)">Pago</span>';
+  if (r.due_date && r.due_date < today) return '<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#FCEAEA;color:var(--neg)">Vencido</span>';
+  return '<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#FFF8EC;color:#7A4F00">Pendente</span>';
+}
+
+function sbInit() {
+  // Preencher select de períodos
+  const sel = document.getElementById('sb-periodo');
+  if (sel && sel.options.length <= 1) {
+    const periodos = [...new Set(DATA.map(r => r.competencia).filter(Boolean))].sort().reverse();
+    periodos.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p;
+      const [y, m] = p.split('-');
+      const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      o.textContent = `${meses[+m-1]}/${y}`;
+      sel.appendChild(o);
+    });
+  }
+
+  // KPIs
+  const total = DATA.length;
+  const receitas = DATA.filter(r => r.tipo === 'Credit').reduce((s, r) => s + r.valor, 0);
+  const despesas = DATA.filter(r => r.tipo === 'Debit').reduce((s, r) => s + r.valor, 0);
+  const resultado = receitas - despesas;
+
+  document.getElementById('sb-kpi-total').textContent = total.toLocaleString('pt-BR');
+  document.getElementById('sb-kpi-rec').textContent = sbFmtVal(receitas);
+  document.getElementById('sb-kpi-desp').textContent = sbFmtVal(despesas);
+  const resEl = document.getElementById('sb-kpi-result');
+  resEl.textContent = sbFmtVal(resultado);
+  resEl.style.color = resultado >= 0 ? 'var(--pos)' : 'var(--neg)';
+
+  const now = new Date().toLocaleString('pt-BR');
+  const upd = document.getElementById('sb-last-update');
+  if (upd) upd.textContent = `Atualizado: ${now}`;
+
+  sbPage = 0;
+  sbRender();
+}
+
+function sbGetFiltered() {
+  const busca = (document.getElementById('sb-busca')?.value || '').toLowerCase();
+  const tipo = document.getElementById('sb-tipo')?.value || '';
+  const status = document.getElementById('sb-status')?.value || '';
+  const periodo = document.getElementById('sb-periodo')?.value || '';
+  const today = new Date().toISOString().slice(0, 10);
+
+  return DATA.filter(r => {
+    if (tipo && r.tipo !== tipo) return false;
+    if (periodo && r.competencia !== periodo) return false;
+    if (status === 'pago' && !r.is_pago) return false;
+    if (status === 'pendente' && (r.is_pago || (r.due_date && r.due_date < today))) return false;
+    if (status === 'vencido' && (r.is_pago || !r.due_date || r.due_date >= today)) return false;
+    if (busca && !`${r.descricao || ''} ${r.fornecedor_nome || ''}`.toLowerCase().includes(busca)) return false;
+    return true;
+  }).sort((a, b) => (b.due_date || '').localeCompare(a.due_date || ''));
+}
+
+function sbRender() {
+  sbFiltered = sbGetFiltered();
+  const total = sbFiltered.length;
+  const start = sbPage * SB_PAGE_SIZE;
+  const page = sbFiltered.slice(start, start + SB_PAGE_SIZE);
+
+  const tbody = document.getElementById('sb-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = page.map((r, i) => {
+    const bg = i % 2 === 0 ? '#fff' : '#FAFBFD';
+    const cor = r.tipo === 'Credit' ? 'var(--pos)' : 'var(--neg)';
+    const tipoLabel = r.tipo === 'Credit'
+      ? '<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#E6F4EE;color:var(--pos)">Receita</span>'
+      : '<span style="padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:#FCEAEA;color:var(--neg)">Despesa</span>';
+    const cat = (r.categoria_nome || '—').replace(/^[^-]+ - /, '');
+    return `<tr style="background:${bg};border-bottom:1px solid var(--border)">
+      <td style="padding:10px 14px;white-space:nowrap;color:var(--mid)">${sbFmtDate(r.due_date)}</td>
+      <td style="padding:10px 14px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.descricao || '—'}</td>
+      <td style="padding:10px 14px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--mid)">${r.fornecedor_nome || '—'}</td>
+      <td style="padding:10px 14px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:11px">${cat}</td>
+      <td style="padding:10px 14px;text-align:center">${tipoLabel}</td>
+      <td style="padding:10px 14px;text-align:center">${sbStatusBadge(r)}</td>
+      <td style="padding:10px 14px;text-align:right;font-family:'DM Mono',monospace;font-weight:600;color:${cor};white-space:nowrap">${sbFmtVal(r.valor)}</td>
+    </tr>`;
+  }).join('');
+
+  const pages = Math.ceil(total / SB_PAGE_SIZE);
+  document.getElementById('sb-count').textContent = `${total.toLocaleString('pt-BR')} registros`;
+  document.getElementById('sb-page-info').textContent = `Página ${sbPage + 1} de ${pages || 1}`;
+  document.getElementById('sb-prev').disabled = sbPage === 0;
+  document.getElementById('sb-next').disabled = sbPage >= pages - 1;
+  document.getElementById('sb-prev').style.opacity = sbPage === 0 ? '0.4' : '1';
+  document.getElementById('sb-next').style.opacity = sbPage >= pages - 1 ? '0.4' : '1';
+}
+
+function sbNextPage() { sbPage++; sbRender(); window.scrollTo(0,0); }
+function sbPrevPage() { if (sbPage > 0) { sbPage--; sbRender(); window.scrollTo(0,0); } }
+function sbResetFiltros() {
+  ['sb-busca','sb-tipo','sb-status','sb-periodo'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  sbPage = 0;
+  sbRender();
+}
+
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Montserrat:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -395,6 +520,7 @@ tr.r-sp td{height:6px;background:var(--bg);border:none;padding:0}
     <a href="#" onclick="navTo('relatorios',this);return false">Relatórios</a>
     <a href="#" onclick="navTo('receitas',this);return false">Receitas</a>
     <a href="#" id="nav-painel" onclick="navTo('painel',this);return false">Painel</a>
+    <a href="#" id="nav-supabase" onclick="navTo('supabase',this);return false">Supabase</a>
   </nav>
 
   <div style="text-align:right;line-height:1.6"><div style="font-size:10px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.45)">Confidencial</div><div style="font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;color:var(--gold-l);letter-spacing:.3px">Dalla, Azevedo, Calandrini e Lamartine Advogados</div></div>
@@ -738,6 +864,98 @@ tr.r-sp td{height:6px;background:var(--bg);border:none;padding:0}
 
 </main>
 </div><!-- /section-painel -->
+
+<!-- ── SECTION SUPABASE ── -->
+<div id="section-supabase" class="page-section">
+  <div style="padding:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="font-family:'DM Sans',sans-serif;font-size:22px;font-weight:700;color:var(--text)">Dados do Supabase</div>
+      <div style="font-size:12px;color:var(--muted)" id="sb-last-update"></div>
+    </div>
+
+    <!-- KPI cards -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px" id="sb-kpis">
+      <div class="r-card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Total de Registros</div>
+        <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:var(--text)" id="sb-kpi-total">—</div>
+      </div>
+      <div class="r-card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Total Receitas</div>
+        <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:var(--pos)" id="sb-kpi-rec">—</div>
+      </div>
+      <div class="r-card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Total Despesas</div>
+        <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:var(--neg)" id="sb-kpi-desp">—</div>
+      </div>
+      <div class="r-card" style="padding:16px 18px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Resultado Líquido</div>
+        <div style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700" id="sb-kpi-result">—</div>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="r-card" style="padding:14px 18px;margin-bottom:16px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <input id="sb-busca" type="text" placeholder="Buscar descrição, fornecedor..." oninput="sbRender()"
+          style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:'Montserrat',sans-serif;width:240px;outline:none">
+        <select id="sb-tipo" onchange="sbRender()"
+          style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:'Montserrat',sans-serif;background:#fff">
+          <option value="">Todos os tipos</option>
+          <option value="Credit">Receita</option>
+          <option value="Debit">Despesa</option>
+        </select>
+        <select id="sb-status" onchange="sbRender()"
+          style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:'Montserrat',sans-serif;background:#fff">
+          <option value="">Todos os status</option>
+          <option value="pago">Pago</option>
+          <option value="pendente">Pendente</option>
+          <option value="vencido">Vencido</option>
+        </select>
+        <select id="sb-periodo" onchange="sbRender()"
+          style="padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:'Montserrat',sans-serif;background:#fff">
+          <option value="">Todos os períodos</option>
+        </select>
+        <button onclick="sbResetFiltros()"
+          style="padding:8px 14px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:'Montserrat',sans-serif;background:#fff;cursor:pointer;color:var(--mid)">
+          Limpar
+        </button>
+        <span style="font-size:11px;color:var(--muted);margin-left:auto" id="sb-count"></span>
+      </div>
+    </div>
+
+    <!-- Tabela -->
+    <div class="r-card" style="padding:0;overflow:hidden">
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:var(--navy);color:rgba(255,255,255,.85)">
+              <th style="padding:11px 14px;text-align:left;font-weight:600;letter-spacing:.3px;white-space:nowrap">Vencimento</th>
+              <th style="padding:11px 14px;text-align:left;font-weight:600;letter-spacing:.3px;white-space:nowrap">Descrição</th>
+              <th style="padding:11px 14px;text-align:left;font-weight:600;letter-spacing:.3px;white-space:nowrap">Fornecedor / Cliente</th>
+              <th style="padding:11px 14px;text-align:left;font-weight:600;letter-spacing:.3px;white-space:nowrap">Categoria</th>
+              <th style="padding:11px 14px;text-align:center;font-weight:600;letter-spacing:.3px;white-space:nowrap">Tipo</th>
+              <th style="padding:11px 14px;text-align:center;font-weight:600;letter-spacing:.3px;white-space:nowrap">Status</th>
+              <th style="padding:11px 14px;text-align:right;font-weight:600;letter-spacing:.3px;white-space:nowrap">Valor</th>
+            </tr>
+          </thead>
+          <tbody id="sb-tbody"></tbody>
+        </table>
+      </div>
+      <!-- Paginação -->
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--border)">
+        <button onclick="sbPrevPage()" id="sb-prev"
+          style="padding:6px 14px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:#fff;cursor:pointer;font-family:'Montserrat',sans-serif">
+          ← Anterior
+        </button>
+        <span style="font-size:12px;color:var(--muted)" id="sb-page-info"></span>
+        <button onclick="sbNextPage()" id="sb-next"
+          style="padding:6px 14px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:#fff;cursor:pointer;font-family:'Montserrat',sans-serif">
+          Próxima →
+        </button>
+      </div>
+    </div>
+  </div>
+</div><!-- /section-supabase -->
 
 <!-- DETAIL PANEL -->
 <div class="overlay" id="overlay">
@@ -1574,6 +1792,7 @@ function navTo(section, el){
       }
     },100);
   }
+  if(section==='supabase') sbInit();
 }
 
 // ── RESUMO JS ──
