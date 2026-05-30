@@ -409,28 +409,13 @@ tr.r-sp td{height:6px;background:var(--bg);border:none;padding:0}
     </div>
 
     <div class="res-row1">
-      <!-- SALDO -->
+      <!-- SALDO (dinâmico via Supabase) -->
       <div class="r-card">
         <div class="r-saldo-header">
           <div class="r-card-title">Saldo</div>
-          <div class="r-saldo-total">R$ 169.796,65</div>
+          <div class="r-saldo-total" id="r-saldo-total">—</div>
         </div>
-        <div class="r-account-row" style="opacity:1">
-        <div class="r-account-name"><span class="r-chk" style="background:#4A90D9"></span>01 - Inter</div>
-        <div class="r-account-val" style="">R$ 236.349,37</div>
-      </div><div class="r-account-row" style="opacity:1">
-        <div class="r-account-name"><span class="r-chk" style="background:#4A90D9"></span>02 - Inter Aplicação</div>
-        <div class="r-account-val" style="">R$ 13.029,02</div>
-      </div><div class="r-account-row" style="opacity:1">
-        <div class="r-account-name"><span class="r-chk" style="background:#4A90D9"></span>03 - Caixa Físico</div>
-        <div class="r-account-val" style="">R$ 14.550,00</div>
-      </div><div class="r-account-row" style="opacity:1">
-        <div class="r-account-name"><span class="r-chk" style="background:#4A90D9"></span>04 - Cartão de Crédito Inter</div>
-        <div class="r-account-val" style="color:var(--neg)">R$ 94.131,74</div>
-      </div><div class="r-account-row" style="opacity:0.5">
-        <div class="r-account-name"><span class="r-chk" style="background:#ccc"></span>Nubank (Desativada)</div>
-        <div class="r-account-val" style="">R$ 4.998,07</div>
-      </div>
+        <div id="r-saldo-list"></div>
       </div>
       <!-- FLUXO DE CAIXA -->
       <div class="r-card">
@@ -1406,6 +1391,29 @@ function getItems(key,period){
 let chartLiqInst = null;
 let chartInst = null;
 
+function renderContas(contas) {
+  const list = document.getElementById('r-saldo-list');
+  const totalEl = document.getElementById('r-saldo-total');
+  if (!list) return;
+  if (!contas || contas.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 0">Nenhuma conta disponível</div>';
+    return;
+  }
+  const ativas = contas.filter(c => c.ativa);
+  const total = ativas.reduce((s, c) => s + (c.saldo_atual || 0), 0);
+  if (totalEl) totalEl.textContent = total.toLocaleString('pt-BR', {style:'currency',currency:'BRL'});
+  list.innerHTML = contas.map(c => {
+    const cor = c.ativa ? '#4A90D9' : '#ccc';
+    const op = c.ativa ? '1' : '0.5';
+    const valColor = (c.saldo_atual || 0) < 0 ? 'color:var(--neg)' : '';
+    const val = (c.saldo_atual || 0).toLocaleString('pt-BR', {style:'currency',currency:'BRL'});
+    return `<div class="r-account-row" style="opacity:${op}">
+      <div class="r-account-name"><span class="r-chk" style="background:${cor}"></span>${c.nome}</div>
+      <div class="r-account-val" style="${valColor}">${val}</div>
+    </div>`;
+  }).join('');
+}
+
 function doLogin(){
   const email=document.getElementById('login-email')?.value.trim();
   const pass=document.getElementById('login-password')?.value;
@@ -1445,9 +1453,16 @@ function doLogin(){
   }
 
   try {
-    DATA = await fetchAll();
+    const [lancamentos, contas] = await Promise.all([
+      fetchAll(),
+      fetch(`${SUPABASE_URL}/rest/v1/contas?select=id,nome,saldo_atual,ativa&order=nome`, { headers })
+        .then(r => r.ok ? r.json() : [])
+        .catch(() => [])
+    ]);
+    DATA = lancamentos;
     ALL_PERIODS = [...new Set(DATA.map(r=>r.competencia))].sort();
     selected = [...ALL_PERIODS];
+    renderContas(contas);
   } catch (e) {
     const errEl = document.getElementById('loading-error');
     if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'Erro ao carregar dados: ' + e.message; }
