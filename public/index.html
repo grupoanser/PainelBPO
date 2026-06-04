@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Financeiro · Grupo Anser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Montserrat:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/main.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen">
+  <div class="loading-title">Carregando painel financeiro</div>
+  <div class="spinner" id="loading-spinner"></div>
+  <div id="loading-count"></div>
+  <div id="loading-error"></div>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+  <header>
+    <div class="hd">
+      <div class="logo">A</div>
+      <div class="hd-name">
+        ANSER
+        <small>CONFIDENCIAL</small>
+      </div>
+      <nav class="site-nav">
+        <a href="#" class="active" onclick="navTo('resumo',this);return false">Resumo</a>
+        <a href="#" onclick="navTo('agentes',this);return false">Agentes</a>
+        <a href="#" onclick="navTo('relatorios',this);return false">Relatórios</a>
+        <a href="#" onclick="navTo('receitas',this);return false">Receitas</a>
+        <a href="#" id="nav-painel" onclick="navTo('painel',this);return false">Painel</a>
+      </nav>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="text-align:right">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:rgba(201,168,76,.7);margin-bottom:2px">CONFIDENCIAL</div>
+        <div style="font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;color:var(--gold-l)" id="hd-cliente-nome">—</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- RESUMO -->
+  <div id="section-resumo" class="page-section active">
+    <div class="res-wrap">
+      <div class="res-page-header">
+        <div class="res-page-title">Resumo</div>
+        <button onclick="window.print()" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:18px" title="Imprimir">⎙</button>
+      </div>
+      <div class="res-row1">
+        <div class="r-card">
+          <div class="r-saldo-header">
+            <div class="r-card-title">Saldo</div>
+            <div class="r-saldo-total" id="r-saldo-total">—</div>
+          </div>
+          <div id="r-saldo-list"></div>
+        </div>
+        <div class="r-card">
+          <div class="r-fluxo-header">
+            <div class="r-card-title">Fluxo de Caixa</div>
+            <div class="r-period-nav">
+              <button onclick="rFluxoPrev()">‹</button>
+              <span class="r-period-lbl" id="r-fluxo-lbl">—</span>
+              <button onclick="rFluxoNext()">›</button>
+            </div>
+          </div>
+          <div class="r-chart-wrap"><canvas id="r-fluxo-chart"></canvas></div>
+        </div>
+      </div>
+      <div class="res-row2">
+        <div class="r-card">
+          <div class="r-card-title-row">
+            <span style="color:var(--pos);font-size:18px;font-weight:700">↑</span>
+            <span style="font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:var(--text)">Recebimentos</span>
+          </div>
+          <div class="r-tabs">
+            <div class="r-tab active" onclick="rSwitchTab('rec','prox',this)">Próximos a receber</div>
+            <div class="r-tab" onclick="rSwitchTab('rec','aberto',this)">Em aberto <span class="r-tab-badge" id="r-badge-rec-aberto" style="color:var(--mid)">—</span></div>
+            <div class="r-tab" onclick="rSwitchTab('rec','vencido',this)">Vencido <span class="r-tab-badge" id="r-badge-rec-vencido">—</span></div>
+          </div>
+          <div class="r-txn-list" id="r-rec-list"></div>
+        </div>
+        <div class="r-card">
+          <div class="r-card-title-row">
+            <span style="color:var(--neg);font-size:18px;font-weight:700">↓</span>
+            <span style="font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:var(--text)">Pagamentos</span>
+          </div>
+          <div class="r-tabs">
+            <div class="r-tab active" onclick="rSwitchTab('pag','prox',this)">Próximos a pagar</div>
+            <div class="r-tab" onclick="rSwitchTab('pag','aberto',this)">Em aberto <span class="r-tab-badge" id="r-badge-pag-aberto" style="color:var(--mid)">—</span></div>
+            <div class="r-tab" onclick="rSwitchTab('pag','vencido',this)">Vencido <span class="r-tab-badge" id="r-badge-pag-vencido">—</span></div>
+          </div>
+          <div class="r-txn-list" id="r-pag-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECEITAS -->
+  <div id="section-receitas" class="page-section">
+    <div style="max-width:1400px;margin:0 auto;padding:20px 24px 60px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <h2 style="font-family:'DM Sans',sans-serif;font-size:22px;font-weight:700;color:var(--text)">Receitas</h2>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button onclick="recNavYear(-1)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:16px;color:var(--mid)">‹</button>
+          <span id="rec-year-lbl" style="font-family:'DM Sans',sans-serif;font-size:20px;font-weight:700;color:var(--text);min-width:60px;text-align:center">—</span>
+          <button onclick="recNavYear(1)" style="background:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:16px;color:var(--mid)">›</button>
+        </div>
+      </div>
+      <div style="background:var(--card);border-radius:10px;border:1px solid var(--border);box-shadow:var(--sh);padding:14px 20px;display:flex;gap:28px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-start">
+        <div>
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Visualizar por</div>
+          <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer"><input type="radio" name="rec-basis" value="competencia" onchange="recSetBasis(this.value)" checked> Competência</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer"><input type="radio" name="rec-basis" value="caixa" onchange="recSetBasis(this.value)"> Caixa</label>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Visão</div>
+          <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer"><input type="radio" name="rec-view" value="realizado" onchange="recSetView(this.value)" checked> Realizado</label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;cursor:pointer"><input type="radio" name="rec-view" value="agendado" onchange="recSetView(this.value)"> Agendado</label>
+          </div>
+        </div>
+      </div>
+      <div style="background:var(--card);border-radius:10px;border:1px solid var(--border);box-shadow:var(--sh);overflow:hidden">
+        <div style="overflow-x:auto">
+          <table class="dre" style="width:100%;border-collapse:collapse">
+            <thead><tr id="rec-head"></tr></thead>
+            <tbody id="rec-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AGENTES -->
+  <div id="section-agentes" class="page-section">
+    <div class="ag-layout">
+      <div class="ag-sidebar">
+        <div class="ag-sidebar-header">
+          <input class="ag-search" type="text" placeholder="Buscar agente..." oninput="agFilter(this.value)" id="ag-search">
+          <div class="ag-type-tabs">
+            <button class="ag-type-btn active" onclick="agSetTipo('Todos',this)">Todos</button>
+            <button class="ag-type-btn" onclick="agSetTipo('Cliente',this)">Clientes</button>
+            <button class="ag-type-btn" onclick="agSetTipo('Fornecedor',this)">Fornecedores</button>
+            <button class="ag-type-btn" onclick="agSetTipo('Funcionario',this)">Funcionários</button>
+            <button class="ag-type-btn" onclick="agSetTipo('Socio',this)">Sócios</button>
+          </div>
+        </div>
+        <div id="ag-list"></div>
+      </div>
+      <div class="ag-detail" id="ag-detail">
+        <div class="ag-detail-empty">Selecione um agente para ver os detalhes</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RELATÓRIOS -->
+  <div id="section-relatorios" class="page-section">
+    <div class="rel-wrap">
+      <div class="rel-filters" style="flex-direction:column;gap:10px">
+        <div style="display:flex;gap:12px;flex-wrap:nowrap;align-items:flex-end">
+          <div class="rel-filter-group" style="flex-shrink:0">
+            <span class="rel-filter-lbl">Período de Vencimento</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input class="rel-input" type="date" id="rel-data-ini" onchange="relRender()" style="width:140px">
+              <span style="color:var(--muted);font-size:12px">até</span>
+              <input class="rel-input" type="date" id="rel-data-fim" onchange="relRender()" style="width:140px">
+            </div>
+          </div>
+          <div class="rel-filter-group" style="flex:1;min-width:160px">
+            <span class="rel-filter-lbl">Nome</span>
+            <select class="rel-input" id="rel-nome" onchange="relRender()" style="width:100%">
+              <option value="">Selecione um contato...</option>
+            </select>
+          </div>
+          <div class="rel-filter-group" style="flex:2;min-width:180px">
+            <span class="rel-filter-lbl">Descrição ou Referência</span>
+            <input class="rel-input" type="text" id="rel-busca" placeholder="Buscar..." oninput="relRender()" style="width:100%">
+          </div>
+          <div class="rel-filter-group" style="flex-shrink:0">
+            <span class="rel-filter-lbl">Valor</span>
+            <div style="display:flex;gap:6px">
+              <input class="rel-input" type="number" id="rel-val-min" placeholder="De" oninput="relRender()" style="width:80px">
+              <input class="rel-input" type="number" id="rel-val-max" placeholder="Até" oninput="relRender()" style="width:80px">
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:nowrap;align-items:flex-end">
+          <div class="rel-filter-group" style="flex:1;min-width:160px">
+            <span class="rel-filter-lbl">Categoria</span>
+            <select class="rel-input" id="rel-categoria" onchange="relRender()" style="width:100%">
+              <option value="">Todas as categorias</option>
+            </select>
+          </div>
+          <div class="rel-filter-group" style="flex-shrink:0;min-width:120px">
+            <span class="rel-filter-lbl">Tipo</span>
+            <select class="rel-input" id="rel-tipo" onchange="relRender()" style="width:100%">
+              <option value="">Todos</option>
+              <option value="Credit">Receitas</option>
+              <option value="Debit">Despesas</option>
+            </select>
+          </div>
+          <div class="rel-filter-group" style="flex-shrink:0;min-width:120px">
+            <span class="rel-filter-lbl">Status</span>
+            <select class="rel-input" id="rel-status" onchange="relRender()" style="width:100%">
+              <option value="">Todos</option>
+              <option value="pago">Pago</option>
+              <option value="pendente">Pendente</option>
+              <option value="vencido">Vencido</option>
+            </select>
+          </div>
+          <div class="rel-filter-group" style="flex:1;min-width:160px">
+            <span class="rel-filter-lbl">Centro de Custo</span>
+            <select class="rel-input" id="rel-cc" onchange="relRender()" style="width:100%">
+              <option value="">Todos os centros</option>
+            </select>
+          </div>
+          <div class="rel-filter-group" style="flex:1;min-width:140px">
+            <span class="rel-filter-lbl">Conta</span>
+            <select class="rel-input" id="rel-banco" onchange="relRender()" style="width:100%">
+              <option value="">Todas as contas</option>
+            </select>
+          </div>
+          <button class="rel-btn primary" onclick="relRender()" style="align-self:flex-end;flex-shrink:0">Filtrar</button>
+          <button class="rel-btn" onclick="relExportCSV()" style="align-self:flex-end;flex-shrink:0">⬇ CSV</button>
+        </div>
+      </div>
+      <div class="rel-table-wrap">
+        <div class="rel-table-container">
+          <table class="rel-table">
+            <thead>
+              <tr>
+                <th>Vencimento</th><th>Competência</th><th>Nome</th><th>Descrição</th>
+                <th>Categoria</th><th>Centro de Custo</th><th>Tipo</th><th>Status</th>
+                <th style="text-align:right">Valor</th><th>Pagamento</th><th>Banco</th>
+              </tr>
+            </thead>
+            <tbody id="rel-tbody"></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="8">Total</td>
+                <td style="text-align:right;color:var(--text)" id="rel-total">—</td>
+                <td colspan="2"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div style="padding:10px 16px;font-size:11px;color:var(--muted)" id="rel-count"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAINEL DRE -->
+  <div id="section-painel" class="page-section">
+    <main>
+      <div class="panel-hdr">
+        <div class="ph-row1">
+          <h1 class="panel-title">Painel de Acompanhamento</h1>
+          <div class="yr-nav">
+            <button class="yr-btn" id="yr-prev" title="Ano anterior">
+              <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span class="yr-label" id="yr-label">—</span>
+            <button class="yr-btn" id="yr-next" title="Próximo ano">
+              <svg viewBox="0 0 24 24"><polyline points="9 6 15 12 9 18"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="ph-row2">
+          <div class="fg">
+            <div class="fg-lbl">Visualizar por</div>
+            <div class="fg-opts" style="flex-direction:column;gap:5px;align-items:flex-start">
+              <label class="ro active" data-basis="caixa"><div class="rd"><div class="rd-dot"></div></div>Caixa</label>
+              <label class="ro" data-basis="competencia"><div class="rd"><div class="rd-dot"></div></div>Competência</label>
+            </div>
+          </div>
+          <div class="fg">
+            <div class="fg-lbl">Visão</div>
+            <div class="fg-opts" style="flex-direction:column;gap:5px;align-items:flex-start">
+              <label class="ro active" data-visao="realizado"><div class="rd"><div class="rd-dot"></div></div>Realizado</label>
+              <label class="ro" data-visao="agendado"><div class="rd"><div class="rd-dot"></div></div>Agendado</label>
+            </div>
+          </div>
+          <div class="fg" style="border-right:none">
+            <div class="fg-lbl">Centro de custo</div>
+            <div class="fg-opts">
+              <select class="cc-select" id="cc-select" onchange="setCentro(this.value)"><option value="">Todos os centros</option></select>
+            </div>
+          </div>
+          <div class="fg" style="border-right:none;margin-left:auto;display:flex;gap:0">
+            <div style="padding:0 22px;border-right:1px solid var(--border)">
+              <div class="fg-lbl">Análise</div>
+              <div class="fg-opts" style="flex-direction:column;gap:5px;align-items:flex-start">
+                <button class="tgl-btn" id="btn-av" onclick="toggleAV()"><span class="tgl-dot"></span>Vertical</button>
+                <button class="tgl-btn" id="btn-ah" onclick="toggleAH()"><span class="tgl-dot"></span>Horizontal</button>
+              </div>
+            </div>
+            <div style="padding:0 22px">
+              <div class="fg-lbl">Exportar</div>
+              <div class="fg-opts" style="flex-direction:column;gap:5px;align-items:stretch">
+                <button class="exp-btn" onclick="exportCSV()">
+                  <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+                  Excel / CSV
+                </button>
+                <button class="exp-btn" onclick="exportPDF()">
+                  <svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                  PDF / Imprimir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi kpi-a"><div class="kpi-lbl">Receita Bruta</div><div class="kpi-val" id="kpi-rb">—</div><div class="kpi-hint" id="kpi-rb-h">período selecionado</div></div>
+        <div class="kpi kpi-b"><div class="kpi-lbl">Margem de Contribuição</div><div class="kpi-val" id="kpi-marg-val">—</div><div class="kpi-hint"><span id="kpi-marg-pct" style="font-family:'Montserrat',sans-serif;font-weight:600;font-size:13px;color:var(--mid)">—</span> sobre receita bruta</div></div>
+        <div class="kpi kpi-c"><div class="kpi-lbl">Resultado Operacional</div><div class="kpi-val" id="kpi-ebit">—</div><div class="kpi-hint"><span id="kpi-ebit-pct" style="font-family:'Montserrat',sans-serif;font-weight:600;font-size:13px;color:var(--mid)">—</span> sobre receita bruta</div></div>
+        <div class="kpi kpi-d"><div class="kpi-lbl">Resultado Líquido</div><div class="kpi-val" id="kpi-liq">—</div><div class="kpi-hint"><span id="kpi-liq-pct" style="font-family:'Montserrat',sans-serif;font-weight:600;font-size:13px;color:var(--mid)">—</span> sobre receita bruta</div></div>
+      </div>
+      <div class="tbl-wrap">
+        <table class="dre" id="dre">
+          <thead><tr id="dre-head"></tr></thead>
+          <tbody id="dre-body"></tbody>
+        </table>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Resultado Operacional — Evolução Mensal</div>
+        <div class="chart-wrap"><canvas id="main-chart"></canvas></div>
+      </div>
+      <div class="chart-card" style="margin-top:16px">
+        <div class="chart-title">Resultado Líquido do Período — Evolução Mensal</div>
+        <div class="chart-wrap"><canvas id="liq-chart"></canvas></div>
+      </div>
+    </main>
+  </div>
+
+
+</div><!-- /app -->
+
+<!-- DETAIL PANEL -->
+<div class="overlay" id="overlay">
+  <div class="panel">
+    <div class="ph">
+      <button class="ph-close" id="pcl">✕</button>
+      <div class="ph-pai" id="p-pai"></div>
+      <div class="ph-nome" id="p-nome"></div>
+      <div class="ph-total" id="p-total"></div>
+    </div>
+    <div class="pb" id="p-body"></div>
+  </div>
+</div>
+
+<!-- JS: ordem importa (dependências primeiro) -->
+<script src="/js/config.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/pages/painel.js"></script>
+<script src="/js/pages/resumo.js"></script>
+<script src="/js/pages/agentes.js"></script>
+<script src="/js/pages/relatorios.js"></script>
+<script src="/js/pages/receitas.js"></script>
+<script src="/js/app.js"></script>
+
+</body>
+</html>

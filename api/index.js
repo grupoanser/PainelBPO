@@ -1,8 +1,12 @@
 require('dotenv').config()
 
 const express = require('express')
+const path = require('path')
 const { cors, errorHandler } = require('./lib/middleware')
 
+const lancamentosRoutes = require('./routes/lancamentos')
+const contasRoutes = require('./routes/contas')
+const clientesRoutes = require('./routes/clientes')
 const dreRoutes = require('./routes/dre')
 const agentesRoutes = require('./routes/agentes')
 
@@ -13,15 +17,19 @@ app.use(express.json())
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
+app.use('/api/lancamentos', lancamentosRoutes)
+app.use('/api/contas', contasRoutes)
+app.use('/api/clientes', clientesRoutes)
 app.use('/api/dre', dreRoutes)
 app.use('/api/agentes', agentesRoutes)
 
+app.use(express.static(path.join(__dirname, '..', 'public')))
+
 app.use(errorHandler)
 
-// Exporta para Vercel (serverless) e roda localmente se chamado direto
 if (require.main === module) {
   const PORT = process.env.PORT || 3001
-  app.listen(PORT, () => console.log(`API rodando em http://localhost:${PORT}`))
+  app.listen(PORT, () => console.log(`Servidor rodando em http://localhost:${PORT}`))
 }
 
 module.exports = app
