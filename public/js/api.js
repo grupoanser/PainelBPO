@@ -7,7 +7,7 @@ async function fetchLancamentos(onProgress) {
     ...r,
     competencia: r.accrual_date ? r.accrual_date.slice(0, 7) : null,
     banco: null,
-    data_pagamento: r.is_pago ? (r.due_date || null) : null,
+    // data_pagamento já vem correta do backend (via baixas.schedule_id)
   }));
 }
 
