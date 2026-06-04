@@ -26,8 +26,9 @@ const GROUP_SIGN = { rb:false, ded:true, imp:true, cus:true, dp:true, da:true, t
 
 function effectivePeriod(r) {
   if (basisMode === 'caixa') {
+    // Visão caixa: usa SOMENTE a data real de pagamento/recebimento
     if (r.data_pagamento) return r.data_pagamento.slice(0, 7);
-    if (r.due_date) return r.due_date.slice(0, 7);
+    return null; // sem data de pagamento = não entra na visão caixa
   }
   if (r.accrual_date) return r.accrual_date.slice(0, 7);
   return r.competencia;
