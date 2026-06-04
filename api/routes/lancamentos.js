@@ -4,7 +4,7 @@ const { asyncHandler } = require('../lib/middleware')
 
 const router = Router()
 
-const FIELDS = 'id,tipo,descricao,valor,is_pago,due_date,accrual_date,schedule_date,schedule_id,categoria_nome,categoria_pai,fornecedor_nome,centro_custo_nome,criado_por'
+const FIELDS = 'id,tipo,descricao,valor,valor_pago,is_pago,due_date,accrual_date,schedule_date,schedule_id,categoria_nome,categoria_pai,fornecedor_nome,centro_custo_nome,criado_por'
 
 async function fetchAllLancamentos() {
   let all = [], from = 0

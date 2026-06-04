@@ -51,9 +51,15 @@ function workingData() {
 function activePeriods() { return [...new Set(workingData().map(r => effectivePeriod(r)))].sort(); }
 function activeYears() { return [...new Set(activePeriods().filter(p => p && p.includes('-')).map(p => p.split('-')[0]))].sort(); }
 
+// Retorna valor_pago no DFC para itens pagos; caso contrário usa valor
+function efVal(r) {
+  if (basisMode === 'caixa' && r.is_pago && r.valor_pago != null) return r.valor_pago;
+  return r.valor;
+}
+
 function compute(period) {
   const d = workingData().filter(r => effectivePeriod(r) === period);
-  const sum = rows => rows.reduce((s, r) => s + r.valor, 0);
+  const sum = rows => rows.reduce((s, r) => s + efVal(r), 0);
 
   const rb_i = d.filter(r => r.tipo === 'Credit' && r.categoria_pai === 'Receitas operacionais');
   const rb = sum(rb_i); const A = rb;
@@ -85,13 +91,13 @@ function compute(period) {
   const C = D_desp;
 
   const recfin_i = d.filter(r => r.categoria_pai === 'Atividades de investimento' && (r.categoria_nome || '').toLowerCase().includes('rec. financeiras'));
-  const recfin = recfin_i.reduce((s, r) => s + (r.tipo === 'Credit' ? r.valor : -r.valor), 0);
+  const recfin = recfin_i.reduce((s, r) => s + (r.tipo === 'Credit' ? efVal(r) : -efVal(r)), 0);
   const inv_i = d.filter(r => r.categoria_pai === 'Atividades de investimento' && !(r.categoria_nome || '').toLowerCase().includes('rec. financeiras'));
-  const inv = inv_i.reduce((s, r) => s + (r.tipo === 'Credit' ? r.valor : -r.valor), 0);
+  const inv = inv_i.reduce((s, r) => s + (r.tipo === 'Credit' ? efVal(r) : -efVal(r)), 0);
   const E = recfin + inv;
 
   const fin_i = d.filter(r => r.categoria_pai === 'Atividades de financiamento');
-  const fin = fin_i.reduce((s, r) => s + (r.tipo === 'Credit' ? r.valor : -r.valor), 0);
+  const fin = fin_i.reduce((s, r) => s + (r.tipo === 'Credit' ? efVal(r) : -efVal(r)), 0);
 
   const resultadoLiq = resOp + recfin + inv + fin;
 
@@ -103,7 +109,7 @@ function getGroupBreakdown(key, comp) {
   const wd = workingData();
   const allNames = new Set();
   comp.forEach(c => { wd.filter(r => effectivePeriod(r) === c.period && fn(r)).forEach(r => allNames.add(r.categoria_nome)); });
-  return [...allNames].sort().map(nome => ({ nome, vals: comp.map(c => wd.filter(r => effectivePeriod(r) === c.period && fn(r) && r.categoria_nome === nome).reduce((s, r) => s + r.valor, 0)) }));
+  return [...allNames].sort().map(nome => ({ nome, vals: comp.map(c => wd.filter(r => effectivePeriod(r) === c.period && fn(r) && r.categoria_nome === nome).reduce((s, r) => s + efVal(r), 0)) }));
 }
 
 function getItemsByKey(key, period) {
@@ -310,7 +316,7 @@ function showDetailByNome(nome, key, onlyPeriod) {
   const selectedItems = [];
   const periodsToShow = onlyPeriod ? [onlyPeriod] : selected;
   periodsToShow.forEach(period => { workingData().filter(r => effectivePeriod(r) === period && r.categoria_nome === nome && fn(r)).forEach(r => selectedItems.push(r)); });
-  const total = selectedItems.reduce((s, r) => s + (r.tipo === 'Credit' ? r.valor : -r.valor), 0);
+  const total = selectedItems.reduce((s, r) => s + (r.tipo === 'Credit' ? efVal(r) : -efVal(r)), 0);
   const pais = { rb:'Receitas operacionais', ded:'Receitas operacionais', imp:'Receitas operacionais', cus:'Custos operacionais', da:'Despesas operacionais', te:'Despesas operacionais', ut:'Despesas operacionais', recfin:'Atividades de investimento', inv:'Atividades de investimento', fin:'Atividades de financiamento' };
   document.getElementById('p-pai').textContent = pais[key] || '';
   document.getElementById('p-nome').textContent = nome;
@@ -338,11 +344,12 @@ function _renderDetailItems(selectedItems) {
   let html = '';
   if (selectedItems.length === 0) html = '<p style="color:var(--muted);font-size:13px;text-align:center;padding:32px 0">Nenhum lançamento encontrado.</p>';
   Object.entries(byPeriod).sort().forEach(([p, rows]) => {
-    const pt = rows.reduce((s, r) => s + (r.tipo === 'Credit' ? r.valor : -r.valor), 0);
+    const pt = rows.reduce((s, r) => s + (r.tipo === 'Credit' ? efVal(r) : -efVal(r)), 0);
     html += `<div class="pg"><div class="pg-lbl">${fmtP(p)} <span>${R(pt)}</span></div>`;
     rows.forEach(r => {
       const cr = r.tipo === 'Credit';
-      html += `<div class="lanc"><div class="l-desc">${H(r.descricao?.trim() || '—')}</div><div class="l-meta"><div class="l-info">${r.fornecedor_nome ? `<span class="l-forn">${H(r.fornecedor_nome)}</span>` : ''}<span class="tag ${r.is_pago ? 'tg-p' : 'tg-n'}">${r.is_pago ? 'Pago' : 'Pendente'}</span>${r.due_date ? `<span class="l-date">Venc: ${r.due_date}</span>` : ''}</div><div class="l-val ${cr ? 'cr' : 'db'}">${cr ? '+' : '−'}${R(r.valor)}</div></div></div>`;
+      const displayVal = efVal(r);
+      html += `<div class="lanc"><div class="l-desc">${H(r.descricao?.trim() || '—')}</div><div class="l-meta"><div class="l-info">${r.fornecedor_nome ? `<span class="l-forn">${H(r.fornecedor_nome)}</span>` : ''}<span class="tag ${r.is_pago ? 'tg-p' : 'tg-n'}">${r.is_pago ? 'Pago' : 'Pendente'}</span>${r.due_date ? `<span class="l-date">Venc: ${r.due_date}</span>` : ''}</div><div class="l-val ${cr ? 'cr' : 'db'}">${cr ? '+' : '−'}${R(displayVal)}</div></div></div>`;
     });
     html += '</div>';
   });
