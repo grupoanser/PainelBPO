@@ -13,6 +13,7 @@ async function fetchAllLancamentos() {
     const { data, error } = await supabase
       .from('lancamentos')
       .select(FIELDS)
+      .eq('ativo', true)
       .order('due_date', { ascending: false })
       .range(from, from + PAGE - 1)
     if (error) throw { status: 400, message: error.message }
