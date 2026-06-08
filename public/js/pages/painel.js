@@ -50,10 +50,7 @@ function workingData() {
     return rows;
   }
 
-  // Inclui ajustes (descontos, juros, multas) como itens separados
-  const ajustes = typeof AJUSTES_ENRICHED !== 'undefined' ? AJUSTES_ENRICHED : [];
-  const ajustesFiltrados = centroFilter ? [] : ajustes; // ajustes não têm centro de custo
-  return [...applyFilter(base), ...applyFilter(ajustesFiltrados)];
+  return applyFilter(base);
 }
 
 function activePeriods() { return [...new Set(workingData().map(r => effectivePeriod(r)))].sort(); }

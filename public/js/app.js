@@ -1,7 +1,6 @@
 let DATA = [];
 let ALL_PERIODS = [];
 let selected = [];
-let AJUSTES_ENRICHED = []; // itens de ajuste (descontos, juros, multas) da lancamentos_categorias
 
 function renderContas(contas) {
   const list = document.getElementById('r-saldo-list');
@@ -50,59 +49,19 @@ function navTo(section, el) {
 
 (async function init() {
   try {
-    const [lancamentos, contas, cliente, ajustes] = await Promise.all([
+    const [lancamentos, contas, cliente] = await Promise.all([
       fetchLancamentos(count => {
         const el = document.getElementById('loading-count');
         if (el) el.textContent = count + ' registros carregados...';
       }),
       fetchContas(),
-      fetchCliente(),
-      fetchAjustes()
+      fetchCliente()
     ]);
 
     DATA = lancamentos;
     ALL_PERIODS = [...new Set(DATA.map(r => r.competencia))].filter(Boolean).sort();
     selected = [...ALL_PERIODS];
     renderContas(contas);
-
-    // Processar ajustes: corrigir gross em DATA e criar linhas de ajuste separadas
-    const scheduleMap = {};
-    DATA.forEach(r => { if (r.schedule_id) scheduleMap[r.schedule_id] = r; });
-
-    // Agrupar entradas de lancamentos_categorias por schedule_id
-    const catsBySchedule = {};
-    ajustes.forEach(a => {
-      if (!catsBySchedule[a.schedule_id]) catsBySchedule[a.schedule_id] = [];
-      catsBySchedule[a.schedule_id].push(a);
-    });
-
-    AJUSTES_ENRICHED = [];
-    Object.entries(catsBySchedule).forEach(([sid, entries]) => {
-      const parent = scheduleMap[sid];
-      if (!parent) return;
-
-      entries.forEach(a => {
-        const isMain = parent.categoria_nome &&
-          a.categoria_nome.toLowerCase().includes(
-            parent.categoria_nome.replace(/^[^-]+ - /i, '').toLowerCase().slice(0, 10)
-          );
-
-        if (isMain) {
-          // Corrigir o valor gross no lancamento pai
-          parent.valor = Math.abs(a.valor);
-        } else {
-          // Adicionar linha de ajuste separada
-          AJUSTES_ENRICHED.push({
-            ...parent,
-            categoria_nome: a.categoria_nome,
-            categoria_pai: a.categoria_pai,
-            tipo: a.tipo === 'in' ? 'Credit' : 'Debit',
-            valor: Math.abs(a.valor),
-            _isAjuste: true
-          });
-        }
-      });
-    });
 
     if (cliente) {
       const el = document.getElementById('hd-cliente-nome');
@@ -121,11 +80,9 @@ function navTo(section, el) {
   initCentroDropdown();
   const _yrs = activeYears();
   const _currentYear = new Date().getFullYear().toString();
-  // Prefere o ano atual se tiver dados, senão o mais recente com dados
   activeYear = _yrs.includes(_currentYear) ? _currentYear : (_yrs.length ? _yrs[_yrs.length - 1] : null);
   initYearNav();
 
-  // Posicionar Fluxo de Caixa no trimestre mais recente que tem dados pagos
   (function findFluxoQuarter() {
     const now = new Date();
     for (let offset = 0; offset >= -16; offset--) {
@@ -142,16 +99,13 @@ function navTo(section, el) {
     }
   })();
 
-  // Resumo inicial
   setTimeout(() => { rInitFluxo(); rRenderBadges(); rRenderTxn('rec', 'prox'); rRenderTxn('pag', 'prox'); }, 100);
 
-  // Eventos do painel
   document.getElementById('yr-prev').addEventListener('click', () => { const yrs = activeYears(), i = yrs.indexOf(activeYear); if (i > 0) setYear(yrs[i - 1]); });
   document.getElementById('yr-next').addEventListener('click', () => { const yrs = activeYears(), i = yrs.indexOf(activeYear); if (i < yrs.length - 1) setYear(yrs[i + 1]); });
   document.querySelectorAll('[data-basis]').forEach(ro => { ro.addEventListener('click', () => { document.querySelectorAll('[data-basis]').forEach(r => r.classList.remove('active')); ro.classList.add('active'); basisMode = ro.dataset.basis; initYearNav(); }); });
   document.querySelectorAll('[data-visao]').forEach(ro => { ro.addEventListener('click', () => { document.querySelectorAll('[data-visao]').forEach(r => r.classList.remove('active')); ro.classList.add('active'); viewMode = ro.dataset.visao; initYearNav(); }); });
 
-  // Detail panel
   document.getElementById('overlay').addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
   document.getElementById('pcl').addEventListener('click', () => document.getElementById('overlay').classList.remove('open'));
 })();
