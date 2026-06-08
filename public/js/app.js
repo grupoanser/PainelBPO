@@ -65,21 +65,44 @@ function navTo(section, el) {
     selected = [...ALL_PERIODS];
     renderContas(contas);
 
-    // Enriquecer ajustes com datas do lancamento pai (via schedule_id)
+    // Processar ajustes: corrigir gross em DATA e criar linhas de ajuste separadas
     const scheduleMap = {};
     DATA.forEach(r => { if (r.schedule_id) scheduleMap[r.schedule_id] = r; });
-    AJUSTES_ENRICHED = ajustes.map(a => {
-      const parent = scheduleMap[a.schedule_id];
-      if (!parent) return null;
-      return {
-        ...parent,
-        categoria_nome: a.categoria_nome,
-        categoria_pai: a.categoria_pai,
-        tipo: a.tipo === 'in' ? 'Credit' : 'Debit',
-        valor: Math.abs(a.valor),
-        _isAjuste: true
-      };
-    }).filter(Boolean);
+
+    // Agrupar entradas de lancamentos_categorias por schedule_id
+    const catsBySchedule = {};
+    ajustes.forEach(a => {
+      if (!catsBySchedule[a.schedule_id]) catsBySchedule[a.schedule_id] = [];
+      catsBySchedule[a.schedule_id].push(a);
+    });
+
+    AJUSTES_ENRICHED = [];
+    Object.entries(catsBySchedule).forEach(([sid, entries]) => {
+      const parent = scheduleMap[sid];
+      if (!parent) return;
+
+      entries.forEach(a => {
+        const isMain = parent.categoria_nome &&
+          a.categoria_nome.toLowerCase().includes(
+            parent.categoria_nome.replace(/^[^-]+ - /i, '').toLowerCase().slice(0, 10)
+          );
+
+        if (isMain) {
+          // Corrigir o valor gross no lancamento pai
+          parent.valor = Math.abs(a.valor);
+        } else {
+          // Adicionar linha de ajuste separada
+          AJUSTES_ENRICHED.push({
+            ...parent,
+            categoria_nome: a.categoria_nome,
+            categoria_pai: a.categoria_pai,
+            tipo: a.tipo === 'in' ? 'Credit' : 'Debit',
+            valor: Math.abs(a.valor),
+            _isAjuste: true
+          });
+        }
+      });
+    });
 
     if (cliente) {
       const el = document.getElementById('hd-cliente-nome');
