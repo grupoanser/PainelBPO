@@ -57,6 +57,7 @@ router.get('/', asyncHandler(async (req, res) => {
       centro_custo_nome: lanc.centro_custo_nome,
       criado_por:        lanc.criado_por,
       is_pago:           lanc.is_pago,
+      valor_pago:        lanc.valor_pago,
       due_date:          lanc.due_date,
       accrual_date:      lanc.accrual_date,
       schedule_date:     lanc.schedule_date,
@@ -88,8 +89,7 @@ router.get('/', asyncHandler(async (req, res) => {
         categoria_nome: lanc.categoria_nome,
         categoria_pai:  lanc.categoria_pai,
         tipo:           lanc.tipo,
-        valor:          lanc.valor,
-        valor_pago:     lanc.valor_pago
+        valor:          lanc.valor
       })
     }
   })
