@@ -22,3 +22,9 @@ async function fetchCliente() {
   if (!res.ok) return null;
   return res.json();
 }
+
+async function fetchAjustes() {
+  const res = await fetch(API_BASE + '/api/ajustes');
+  if (!res.ok) return [];
+  return res.json();
+}

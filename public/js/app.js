@@ -1,6 +1,7 @@
 let DATA = [];
 let ALL_PERIODS = [];
 let selected = [];
+let AJUSTES_ENRICHED = []; // itens de ajuste (descontos, juros, multas) da lancamentos_categorias
 
 function renderContas(contas) {
   const list = document.getElementById('r-saldo-list');
@@ -49,19 +50,36 @@ function navTo(section, el) {
 
 (async function init() {
   try {
-    const [lancamentos, contas, cliente] = await Promise.all([
+    const [lancamentos, contas, cliente, ajustes] = await Promise.all([
       fetchLancamentos(count => {
         const el = document.getElementById('loading-count');
         if (el) el.textContent = count + ' registros carregados...';
       }),
       fetchContas(),
-      fetchCliente()
+      fetchCliente(),
+      fetchAjustes()
     ]);
 
     DATA = lancamentos;
     ALL_PERIODS = [...new Set(DATA.map(r => r.competencia))].filter(Boolean).sort();
     selected = [...ALL_PERIODS];
     renderContas(contas);
+
+    // Enriquecer ajustes com datas do lancamento pai (via schedule_id)
+    const scheduleMap = {};
+    DATA.forEach(r => { if (r.schedule_id) scheduleMap[r.schedule_id] = r; });
+    AJUSTES_ENRICHED = ajustes.map(a => {
+      const parent = scheduleMap[a.schedule_id];
+      if (!parent) return null;
+      return {
+        ...parent,
+        categoria_nome: a.categoria_nome,
+        categoria_pai: a.categoria_pai,
+        tipo: a.tipo === 'in' ? 'Credit' : 'Debit',
+        valor: Math.abs(a.valor),
+        _isAjuste: true
+      };
+    }).filter(Boolean);
 
     if (cliente) {
       const el = document.getElementById('hd-cliente-nome');

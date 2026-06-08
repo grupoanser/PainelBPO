@@ -9,6 +9,7 @@ const contasRoutes = require('./routes/contas')
 const clientesRoutes = require('./routes/clientes')
 const dreRoutes = require('./routes/dre')
 const agentesRoutes = require('./routes/agentes')
+const ajustesRoutes = require('./routes/ajustes')
 
 const app = express()
 
@@ -22,6 +23,7 @@ app.use('/api/contas', contasRoutes)
 app.use('/api/clientes', clientesRoutes)
 app.use('/api/dre', dreRoutes)
 app.use('/api/agentes', agentesRoutes)
+app.use('/api/ajustes', ajustesRoutes)
 
 app.use(express.static(path.join(__dirname, '..', 'public')))
 

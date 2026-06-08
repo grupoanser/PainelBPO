@@ -37,26 +37,31 @@ function effectivePeriod(r) {
 function workingData() {
   const today = new Date().toISOString().slice(0, 10);
   const base = centroFilter ? DATA.filter(r => r.centro_custo_nome === centroFilter) : DATA;
-  if (viewMode === 'realizado') {
-    return base.filter(r => {
-      if (!r.is_pago) return false;
-      if (basisMode === 'caixa') return r.data_pagamento && r.data_pagamento <= today;
-      const dateRef = r.accrual_date;
-      return !dateRef || dateRef <= today;
-    });
+
+  function applyFilter(rows) {
+    if (viewMode === 'realizado') {
+      return rows.filter(r => {
+        if (!r.is_pago) return false;
+        if (basisMode === 'caixa') return r.data_pagamento && r.data_pagamento <= today;
+        const dateRef = r.accrual_date;
+        return !dateRef || dateRef <= today;
+      });
+    }
+    return rows;
   }
-  return base;
+
+  // Inclui ajustes (descontos, juros, multas) como itens separados
+  const ajustes = typeof AJUSTES_ENRICHED !== 'undefined' ? AJUSTES_ENRICHED : [];
+  const ajustesFiltrados = centroFilter ? [] : ajustes; // ajustes não têm centro de custo
+  return [...applyFilter(base), ...applyFilter(ajustesFiltrados)];
 }
 
 function activePeriods() { return [...new Set(workingData().map(r => effectivePeriod(r)))].sort(); }
 function activeYears() { return [...new Set(activePeriods().filter(p => p && p.includes('-')).map(p => p.split('-')[0]))].sort(); }
 
-// Retorna o valor efetivo líquido para cálculos do DFC.
-// valor_pago é signed no Supabase (negativo para Debit, positivo para Credit).
-// Usamos Math.abs para manter a mesma semântica de r.valor (sempre positivo),
-// já que o sinal de crédito/débito é controlado pelas fórmulas em compute().
+// DFC usa sempre valor (valor original do contrato).
+// Ajustes como descontos, juros e multas aparecem como linhas separadas via AJUSTES.
 function efVal(r) {
-  if (basisMode === 'caixa' && r.is_pago && r.valor_pago != null) return Math.abs(r.valor_pago);
   return r.valor;
 }
 
