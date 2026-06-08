@@ -56,9 +56,15 @@ function workingData() {
 function activePeriods() { return [...new Set(workingData().map(r => effectivePeriod(r)))].sort(); }
 function activeYears() { return [...new Set(activePeriods().filter(p => p && p.includes('-')).map(p => p.split('-')[0]))].sort(); }
 
-// DFC usa sempre valor (valor original do contrato).
-// Ajustes como descontos, juros e multas aparecem como linhas separadas via AJUSTES.
+// Retorna o valor efetivo para o DFC.
+// Pagamentos parciais: se is_pago=true e valor_pago>0, usa valor_pago (líquido real).
+// Se valor_pago=0 ou ausente com is_pago=true, usa valor (evita zerar o lançamento).
+// Fora do DFC (competência) ou não pago: usa sempre valor.
 function efVal(r) {
+  if (basisMode === 'caixa' && r.is_pago && r.valor_pago != null) {
+    const vp = Math.abs(r.valor_pago);
+    return vp > 0 ? vp : r.valor;
+  }
   return r.valor;
 }
 

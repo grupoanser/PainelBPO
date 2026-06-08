@@ -82,12 +82,14 @@ router.get('/', asyncHandler(async (req, res) => {
       })
     } else {
       // Sem rateio: usa os dados do próprio lançamento (fallback)
+      // valor_pago é passado para que efVal() use o valor líquido em pagamentos parciais
       rows.push({
         ...base,
         categoria_nome: lanc.categoria_nome,
         categoria_pai:  lanc.categoria_pai,
         tipo:           lanc.tipo,
-        valor:          lanc.valor
+        valor:          lanc.valor,
+        valor_pago:     lanc.valor_pago
       })
     }
   })
